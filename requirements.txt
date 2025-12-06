@@ -1,0 +1,15 @@
+dash == 2.17.1
+pandas == 2.2.2
+plotly == 5.22.0
+matplotlib==3.8.0
+streamlit == 1.32.0
+streamlit-option-menu==0.3.2
+vaderSentiment
+textstat
+pyenchant
+splitter
+nltk
+numpy
+scikit-learn
+tensorflow
+seaborn
