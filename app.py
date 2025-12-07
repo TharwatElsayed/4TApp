@@ -378,8 +378,8 @@ elif selected == "Try The Model":
         max_length = 100
         padded_docs = pad_sequences([encoded_docs], maxlen=max_length, padding='post')
 
-        label_map = {0: 'Hate Speech', 1: 'Offensive Language', 2: 'Neither'}
-        label_map_4T = {"LABEL_0": "Neutral", "LABEL_1": "Offensive", "LABEL_2": "Hate"}
+        label_map = {0: 'Hate Speech', 1: 'Offensive Language', 2: 'Neutral Speech'}
+        label_map_4T = {"LABEL_0": "Neutral Speech", "LABEL_1": "Offensive Language", "LABEL_2": "Hate Speech"}
         # Show preprocessing
         st.markdown("#### Preprocessing")
         st.write("Preprocessed:", preprocessed_tweet)
@@ -402,7 +402,7 @@ elif selected == "Try The Model":
                         #st.write(hf_result[0]["label"])
                         raw_label = hf_result[0]["label"]
                         readable_label = label_map_4T.get(raw_label, raw_label)
-                        st.write(f"**Class:** {readable_label}")
+                        st.write(f"**Prediction:** {readable_label}")
 
                     except Exception as e:
                         st.error(f"4T Model error")
