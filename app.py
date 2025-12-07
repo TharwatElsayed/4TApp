@@ -1,7 +1,11 @@
-# app.py — Updated full Streamlit app with HuggingFace BERT integrated as a selectable model
+# app.py — Full updated Streamlit app with HuggingFace BERT (PyTorch-only) integrated
+# IMPORTANT: This must be the very first thing in the file to prevent TF imports by transformers.
+import os
+os.environ["TRANSFORMERS_NO_TF"] = "1"   # Force transformers to avoid TF. Use PyTorch backend.
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Avoid GPU (change if you want GPU)
 
 # ----------------------------
-# Imports
+# Standard imports
 # ----------------------------
 import io
 import re
@@ -16,7 +20,7 @@ import streamlit as st
 from PIL import Image
 from streamlit_option_menu import option_menu
 
-# Keras / TF
+# Keras/TF (used for your local BiLSTM model)
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.models import load_model
@@ -26,11 +30,11 @@ from tensorflow.keras.utils import pad_sequences
 # NLP utils
 from nltk.stem import PorterStemmer
 
-# Transformers
-from transformers import pipeline
+# Transformers (PyTorch-only because TRANSFORMERS_NO_TF=1)
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TextClassificationPipeline
 
 # ----------------------------
-# Attention layer (custom)
+# Custom Attention Layer
 # ----------------------------
 class attention(Layer):
     def __init__(self, return_sequences=True, **kwargs):
@@ -38,7 +42,7 @@ class attention(Layer):
         super(attention, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        # input_shape example: (batch_size, timesteps, features)
+        # input_shape: (batch, timesteps, features)
         self.W = self.add_weight(name="att_weight", shape=(input_shape[-1], 1),
                                  initializer="normal")
         self.b = self.add_weight(name="att_bias", shape=(input_shape[1], 1),
@@ -59,7 +63,7 @@ class attention(Layer):
         return config
 
 # ----------------------------
-# Preprocessing functions
+# Preprocessing helpers
 # ----------------------------
 space_pattern = r'\s+'
 giant_url_regex = (r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|'
@@ -76,8 +80,7 @@ def preprocess(text_string: str) -> str:
     parsed_text = re.sub(r'\bRT\b', '', parsed_text)
     parsed_text = re.sub(emoji_regex, '', parsed_text)
     parsed_text = re.sub('…', '', parsed_text)
-    parsed_text = parsed_text.strip()
-    return parsed_text
+    return parsed_text.strip()
 
 def preprocess_clean(text_string: str, remove_hashtags=True, remove_special_chars=True) -> str:
     text_string = preprocess(text_string)
@@ -93,7 +96,6 @@ def preprocess_clean(text_string: str, remove_hashtags=True, remove_special_char
     return parsed_text.strip()
 
 def strip_hashtags(text: str) -> str:
-    # Keep hashtag words but remove the leading '#'
     text_proc = preprocess_clean(text, remove_hashtags=False, remove_special_chars=True)
     hashtags = re.findall(r'#[\w\-]+', text_proc)
     for tag in hashtags:
@@ -109,64 +111,71 @@ def stemming(text: str):
     return [stemmer.stem(t) for t in text.split()]
 
 # ----------------------------
-# App config & dataset load
+# App settings & dataset
 # ----------------------------
 st.set_page_config(page_title="Tweet Tone Triage (4T)", layout="wide")
 DATA_PATH = Path("labeled_data.csv")
 
-# Load dataset safely
 @st.cache_data
 def load_dataset(path: Path):
     if path.exists():
         try:
             return pd.read_csv(path)
         except Exception as e:
-            st.error(f"Failed to read dataset: {e}")
+            st.error(f"Failed to read dataset {path}: {e}")
             return pd.DataFrame()
     else:
-        st.warning(f"Dataset not found at {path}. Some pages will be limited.")
+        st.warning(f"Dataset not found at {path}. Some pages will show limited information.")
         return pd.DataFrame()
 
 df = load_dataset(DATA_PATH)
 
 # ----------------------------
-# Model loaders (cached)
+# Load HuggingFace pipeline (PyTorch)
 # ----------------------------
 @st.cache_resource
-def load_hf_pipe():
+def load_hf_pipeline(model_name="ctoraman/hate-speech-bert"):
     try:
-        pipe = pipeline("text-classification", model="ctoraman/hate-speech-bert", truncation=True)
-        return pipe
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=False)
+        # Try to extract id2label mapping if present
+        id2label = getattr(model.config, "id2label", None)
+        return pipe, id2label
     except Exception as e:
-        st.error(f"Failed to load HuggingFace model: {e}")
-        return None
+        # Return error details so caller can show message
+        return None, str(e)
 
+hf_pipe, hf_id2label = load_hf_pipeline()
+
+# ----------------------------
+# Load local models (cached)
+# ----------------------------
 @st.cache_resource
 def load_local_models():
-    errors = []
-    # Paths for your saved models (adjust names if needed)
-    keras_path = Path("One-layer_BiLSTM_without_dropout.keras")
-    lr_path = Path("LR_model.pkl")
-    rf_path = Path("Random_Forest_Model.pkl")
-    dt_path = Path("Decision_Tree_Model.pkl")
-    svm_path = Path("SVM_model.pkl")
-
+    messages = []
     SFD_model = None
     LR_model = None
     RF_model = None
     DT_model = None
     SVM_model = None
 
-    # load Keras model
+    keras_path = Path("One-layer_BiLSTM_without_dropout.keras")
+    lr_path = Path("LR_model.pkl")
+    rf_path = Path("Random_Forest_Model.pkl")
+    dt_path = Path("Decision_Tree_Model.pkl")
+    svm_path = Path("SVM_model.pkl")
+
+    # Keras model
     if keras_path.exists():
         try:
             SFD_model = load_model(str(keras_path), custom_objects={'attention': attention})
         except Exception as e:
-            errors.append(f"Keras load error: {e}")
+            messages.append(f"Failed to load Keras model: {e}")
     else:
-        errors.append(f"Keras model not found: {keras_path}")
+        messages.append(f"Keras model file not found: {keras_path}")
 
-    # load pickled classical models
+    # Pickled sklearn models
     for p, name in [(lr_path, "LR"), (rf_path, "RF"), (dt_path, "DT"), (svm_path, "SVM")]:
         if p.exists():
             try:
@@ -181,43 +190,39 @@ def load_local_models():
                 elif name == "SVM":
                     SVM_model = obj
             except Exception as e:
-                errors.append(f"{name} load error: {e}")
+                messages.append(f"Failed to load {name} model from {p}: {e}")
         else:
-            errors.append(f"{name} pickle not found: {p}")
+            messages.append(f"{name} model file not found: {p}")
 
-    return SFD_model, LR_model, RF_model, DT_model, SVM_model, errors
+    return SFD_model, LR_model, RF_model, DT_model, SVM_model, messages
 
-hf_pipe = load_hf_pipe()
-SFD_model, LR_model, RF_model, DT_model, SVM_model, model_load_errors = load_local_models()
-
-# Show any model loading warnings (non-blocking)
-if model_load_errors:
-    st.sidebar.warning("Model load messages: " + "; ".join(model_load_errors[:3]))
+SFD_model, LR_model, RF_model, DT_model, SVM_model, model_load_messages = load_local_models()
+if model_load_messages:
+    st.sidebar.warning("Model load notes: " + "; ".join(model_load_messages[:4]))
 
 # ----------------------------
-# Sidebar menu
+# Sidebar menu (Option A: selectbox style)
 # ----------------------------
 with st.sidebar:
     selected = option_menu(
         menu_title="Tweet Tone Triage Technique (4T): A Secured Federated Deep Learning Approach",
         options=["Data Acquisition", "Data Exploration", "Data Classes Balancing", "Data Preparation",
-                 "ML Model Selection", "Try The Model", "About", "Contact"],
-        icons=["house","cloud", "list", "gear", "graph-up", "briefcase","info","envelope"],
+                 "ML Model Selection", "Try The Model", "Try BERT Model", "About", "Contact"],
+        icons=["house","cloud", "list", "gear", "graph-up", "briefcase", "bxs-robot", "info","envelope"],
         menu_icon="cast",
         default_index=5,
         orientation="vertical"
     )
 
 # ----------------------------
-# Pages content
+# Pages
 # ----------------------------
 if selected == "Data Acquisition":
     st.title("Hate Speech and Offensive Language Dataset")
     st.write("""
     This dataset contains data related to hate speech and offensive language.
-    Davidson introduced a dataset of tweets categorized using a crowdsourced hate speech vocabulary.
-    These tweets were classified into three categories: hate speech, offensive language, and neither.
-    The dataset consists of labeled tweets and includes a 'class' label: 0 for hate speech, 1 for offensive language, and 2 for neither.
+    Davidson et al. (2017) introduced a crowdsourced dataset classifying tweets into:
+    0 = hate speech, 1 = offensive language, 2 = neither.
     """)
     st.markdown("---")
 
@@ -278,7 +283,7 @@ elif selected == "Data Classes Balancing":
 elif selected == "Data Preparation":
     st.title("Dataset Preprocessing")
     st.write("""
-    Preprocessing steps:
+    Preprocessing summary:
     - Remove URLs, mentions, RT tokens, emojis.
     - Lowercasing and light punctuation removal.
     - Normalize hashtags into words.
@@ -314,9 +319,7 @@ elif selected == "Data Preparation":
 
 elif selected == "ML Model Selection":
     st.title("Model Selection")
-    st.write("""
-    (Classifier training and testing): Ten-fold cross-validation was used to train and test multiple classifiers.
-    """)
+    st.write("""Details about classifiers and cross-validation results.""")
     tab1, tab2 = st.tabs(["Classification Results", "Display Results Figures"])
     with tab1:
         st.subheader('Table I. Classification Results')
@@ -348,7 +351,6 @@ elif selected == "ML Model Selection":
 elif selected == "Try The Model":
     st.title("Tweet Tone Triage Application")
 
-    # Select which model to use (include HuggingFace BERT)
     model_choice = st.selectbox("Select model", (
         "Secured Federated BiLSTM",
         "Logistic Regression",
@@ -365,13 +367,14 @@ elif selected == "Try The Model":
             st.warning("Please enter text for prediction.")
             st.stop()
 
-        # Preprocess
+        # Preprocess pipeline
         preprocessed_tweet = preprocess(user_input)
         clean_tweet = preprocess_clean(preprocessed_tweet)
         stripped_tweet = strip_hashtags(clean_tweet)
-        stemmed_tweet = " ".join(stemming(stripped_tweet))
+        stemmed_tokens = stemming(stripped_tweet)
+        stemmed_tweet = " ".join(stemmed_tokens)
 
-        # Tokenize and pad for local models
+        # Local tokenization & padding (for your Keras model)
         tokenizer_local = Tokenizer()
         tokenizer_local.fit_on_texts([stemmed_tweet])
         encoded_docs = tokenizer_local.texts_to_sequences([stemmed_tweet])[0]
@@ -385,36 +388,57 @@ elif selected == "Try The Model":
         st.write("Preprocessed:", preprocessed_tweet)
         st.write("Cleaned:", clean_tweet)
         st.write("Hashtag-stripped:", stripped_tweet)
-        st.write("Stemmed tokens:", stemming(stripped_tweet))
+        st.write("Stemmed tokens:", stemmed_tokens)
         st.write("Padded tokens shape:", padded_docs.shape)
         st.markdown("---")
 
-        # Choose and run model
+        # HuggingFace option:
         if model_choice == "HuggingFace: ctoraman/hate-speech-bert":
             if hf_pipe is None:
-                st.error("HuggingFace pipeline not loaded. Check logs.")
+                st.error(f"HuggingFace pipeline failed to load: {hf_id2label}")
             else:
                 with st.spinner("Analyzing with HuggingFace model..."):
                     try:
-                        result = hf_pipe(user_input)
-                        # result example: [{'label': 'LABEL_1', 'score': 0.9}] OR maybe textual labels
+                        # hf_pipe returns list of dicts, e.g. [{"label": "LABEL_1", "score": 0.987}]
+                        hf_result = hf_pipe(user_input, truncation=True)
                         st.subheader("HuggingFace Model Output")
-                        st.write(result)
-                        # try to present label and score if available
-                        if isinstance(result, list) and len(result) > 0 and "label" in result[0]:
-                            lbl = result[0].get("label")
-                            score = result[0].get("score", None)
+                        st.write(hf_result)
+                        # Try to map label if id2label available
+                        if hf_id2label and isinstance(hf_result, list) and len(hf_result) > 0:
+                            lbl = hf_result[0].get("label")
+                            score = hf_result[0].get("score", None)
+                            # If label is like 'LABEL_1' and id2label maps integers to text, try mapping:
+                            mapped = None
+                            if isinstance(hf_id2label, dict):
+                                # try extract index from label if label starts with "LABEL_"
+                                if isinstance(lbl, str) and lbl.upper().startswith("LABEL_"):
+                                    try:
+                                        idx = int(lbl.split("_")[-1])
+                                        mapped = hf_id2label.get(idx) or hf_id2label.get(str(idx))
+                                    except Exception:
+                                        mapped = None
+                                # if not label_ style, maybe label is already textual
+                                else:
+                                    mapped = lbl
+                            # Display
                             if score is not None:
-                                st.info(f"Label: **{lbl}**, Score: **{score:.4f}**")
+                                st.info(f"Label: **{lbl}**  — Score: **{score:.4f}**")
+                                if mapped:
+                                    st.success(f"Mapped label: **{mapped}**")
                             else:
                                 st.info(f"Label: **{lbl}**")
+                                if mapped:
+                                    st.success(f"Mapped label: **{mapped}**")
+                        else:
+                            # No id2label available — just display raw result
+                            st.info("Raw pipeline output shown above. Check model card on HuggingFace for label mapping.")
                     except Exception as e:
-                        st.error(f"HuggingFace model inference error: {e}")
+                        st.error(f"HuggingFace inference error: {e}")
 
         else:
-            # ensure local models loaded
+            # Ensure local models loaded
             if any(m is None for m in (SFD_model, LR_model, RF_model, DT_model, SVM_model)):
-                st.warning("One or more local models failed to load. Check sidebar messages.")
+                st.sidebar.warning("One or more local models failed to load; check sidebar messages.")
             # Secured Federated BiLSTM
             if model_choice == "Secured Federated BiLSTM":
                 if SFD_model is None:
@@ -475,18 +499,60 @@ elif selected == "Try The Model":
 
     st.markdown("---")
 
+elif selected == "Try BERT Model":
+    st.title("Try HuggingFace BERT Model (ctoraman/hate-speech-bert)")
+    st.write("This tab runs the HuggingFace model only (PyTorch) and shows label + score + mapped label (if available).")
+
+    example = "I really enjoy learning new things every day!"
+    text_to_analyze = st.text_area("Enter text to analyze:", value=example, height=160)
+
+    if st.button("Analyze with BERT"):
+        if not text_to_analyze.strip():
+            st.warning("Please enter text first.")
+            st.stop()
+        if hf_pipe is None:
+            st.error(f"HuggingFace pipeline failed to load: {hf_id2label}")
+        else:
+            with st.spinner("Running HuggingFace model..."):
+                try:
+                    res = hf_pipe(text_to_analyze, truncation=True)
+                    st.write(res)
+                    if isinstance(res, list) and len(res) > 0:
+                        lbl = res[0].get("label")
+                        score = res[0].get("score", None)
+                        st.info(f"Label: **{lbl}**")
+                        if score is not None:
+                            st.write(f"Score: **{score:.4f}**")
+                        # Map label if id2label available
+                        if hf_id2label and isinstance(hf_id2label, dict):
+                            mapped = None
+                            if isinstance(lbl, str) and lbl.upper().startswith("LABEL_"):
+                                try:
+                                    idx = int(lbl.split("_")[-1])
+                                    mapped = hf_id2label.get(idx) or hf_id2label.get(str(idx))
+                                except Exception:
+                                    mapped = None
+                            else:
+                                mapped = lbl
+                            if mapped:
+                                st.success(f"Mapped label: **{mapped}**")
+                    else:
+                        st.info("No label returned. Raw output shown above.")
+                except Exception as e:
+                    st.error(f"HuggingFace inference error: {e}")
+    st.markdown("---")
+
 elif selected == "About":
     st.title("About This App")
     st.write("""
-    This application is designed for the analysis of hate speech and offensive language in tweets.
-    It provides dataset exploration, preprocessing visualization, model comparison, and inference.
+    This application is designed to analyze hate speech and offensive language in tweets.
+    It supports your local BiLSTM and classical ML models plus an integrated HuggingFace transformer model.
     """)
     st.markdown("---")
 
 elif selected == "Contact":
     st.title("Supervisors")
     st.write("This application was designed and deployed by **Tharwat El-Sayed Ismail**, under the supervision of:")
-    # Safe image loading
     def safe_image(path):
         try:
             return Image.open(path)
@@ -495,7 +561,6 @@ elif selected == "Contact":
     ayman_image = safe_image("Ayman Elsayed.jpg")
     abdallah_image = safe_image("Abdullah-N-Moustafa.png")
     tharwat_image = safe_image("Tharwat Elsayed Ismail.JPG")
-
     if ayman_image:
         st.subheader("Prof. Dr. Ayman EL-Sayed")
         st.image(ayman_image, width=200)
@@ -510,8 +575,5 @@ elif selected == "Contact":
         st.write("[tharwat.elsayed@el-eng.menofia.edu.eg](mailto:tharwat.elsayed@el-eng.menofia.edu.eg)")
     st.markdown("---")
     st.title("Contact Me")
-    st.write("""
-    I’m Tharwat El-Sayed Ismail, (Data Scientist - AI Developer)
-    **Email:** tharwat_uss89@hotmail.com
-    """)
+    st.write("**Email:** tharwat_uss89@hotmail.com")
     st.markdown("---")
