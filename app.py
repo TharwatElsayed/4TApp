@@ -357,7 +357,7 @@ elif selected == "Try The Model":
         "SVM - SVC",
     ))
 
-    user_input = st.text_area("Enter the tweet:", value="!!!!! RT @mleew17: boy dats cold...tyga dwn bad for cuffin dat hoe in the 1st place!!", height=150)
+    user_input = st.text_area("Enter the tweet:", value="#bestwaytoenjoyyourday", height=150)
 
     if st.button("Predict"):
         if not user_input.strip():
