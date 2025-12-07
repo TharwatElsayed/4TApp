@@ -435,20 +435,11 @@ elif selected == "Try The Model":
 
         else:
             # Ensure local models loaded
-            if any(m is None for m in (SFD_model, LR_model, RF_model, DT_model, SVM_model)):
+            if any(m is None for m in (LR_model, RF_model, DT_model, SVM_model)):
                 st.sidebar.warning("One or more local models failed to load; check sidebar messages.")
-            # Secured Federated BiLSTM
-            if model_choice == "Secured Federated BiLSTM":
-                if SFD_model is None:
-                    st.error("SFD_model not loaded.")
-                else:
-                    preds = SFD_model.predict(padded_docs)
-                    y_pred = np.argmax(preds, axis=1)
-                    st.subheader("Secured Federated BiLSTM Result")
-                    st.write(f"Prediction: {label_map.get(int(y_pred[0]), str(y_pred[0]))}")
-
+           
             # Logistic Regression
-            elif model_choice == "Logistic Regression":
+            if model_choice == "Logistic Regression":
                 if LR_model is None:
                     st.error("LR model not loaded.")
                 else:
