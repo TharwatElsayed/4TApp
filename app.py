@@ -350,8 +350,7 @@ elif selected == "Try The Model":
     st.title("Tweet Tone Triage Application")
 
     model_choice = st.selectbox("Select model", (
-        "HuggingFace: ctoraman/hate-speech-bert",
-        "Secured Federated BiLSTM",
+        "4T Model",
         "Logistic Regression",
         "Random Forest",
         "Decision Tree",
@@ -391,15 +390,15 @@ elif selected == "Try The Model":
         st.markdown("---")
 
         # HuggingFace option:
-        if model_choice == "HuggingFace: ctoraman/hate-speech-bert":
+        if model_choice == "4T Model":
             if hf_pipe is None:
-                st.error(f"HuggingFace pipeline failed to load: {hf_id2label}")
+                st.error(f"4T Model failed to load: {hf_id2label}")
             else:
-                with st.spinner("Analyzing with HuggingFace model..."):
+                with st.spinner("Analyzing with 4T model..."):
                     try:
                         # hf_pipe returns list of dicts, e.g. [{"label": "LABEL_1", "score": 0.987}]
                         hf_result = hf_pipe(user_input, truncation=True)
-                        st.subheader("HuggingFace Model Output")
+                        st.subheader("4T Model Output")
                         st.write(hf_result)
                         # Try to map label if id2label available
                         if hf_id2label and isinstance(hf_result, list) and len(hf_result) > 0:
@@ -429,9 +428,9 @@ elif selected == "Try The Model":
                                     st.success(f"Mapped label: **{mapped}**")
                         else:
                             # No id2label available — just display raw result
-                            st.info("Raw pipeline output shown above. Check model card on HuggingFace for label mapping.")
+                            st.info("4T Model")
                     except Exception as e:
-                        st.error(f"HuggingFace inference error: {e}")
+                        st.error(f"4T Model error")
 
         else:
             # Ensure local models loaded
