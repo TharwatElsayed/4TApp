@@ -1,8 +1,6 @@
-# app.py — Full updated Streamlit app with HuggingFace BERT (PyTorch-only) integrated
-# IMPORTANT: This must be the very first thing in the file to prevent TF imports by transformers.
 import os
-os.environ["TRANSFORMERS_NO_TF"] = "1"   # Force transformers to avoid TF. Use PyTorch backend.
-os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Avoid GPU (change if you want GPU)
+os.environ["TRANSFORMERS_NO_TF"] = "1"   
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  
 
 # ----------------------------
 # Standard imports
