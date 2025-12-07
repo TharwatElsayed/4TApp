@@ -350,12 +350,12 @@ elif selected == "Try The Model":
     st.title("Tweet Tone Triage Application")
 
     model_choice = st.selectbox("Select model", (
+        "HuggingFace: ctoraman/hate-speech-bert",
         "Secured Federated BiLSTM",
         "Logistic Regression",
         "Random Forest",
         "Decision Tree",
         "SVM - SVC",
-        "HuggingFace: ctoraman/hate-speech-bert"
     ))
 
     user_input = st.text_area("Enter the tweet:", value="!!!!! RT @mleew17: boy dats cold...tyga dwn bad for cuffin dat hoe in the 1st place!!", height=150)
