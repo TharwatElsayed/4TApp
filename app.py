@@ -400,35 +400,7 @@ elif selected == "Try The Model":
                         hf_result = hf_pipe(user_input, truncation=True)
                         st.subheader("4T Model Output")
                         st.write(hf_result)
-                        # Try to map label if id2label available
-                        if hf_id2label and isinstance(hf_result, list) and len(hf_result) > 0:
-                            lbl = hf_result[0].get("label")
-                            score = hf_result[0].get("score", None)
-                            # If label is like 'LABEL_1' and id2label maps integers to text, try mapping:
-                            mapped = None
-                            if isinstance(hf_id2label, dict):
-                                # try extract index from label if label starts with "LABEL_"
-                                if isinstance(lbl, str) and lbl.upper().startswith("LABEL_"):
-                                    try:
-                                        idx = int(lbl.split("_")[-1])
-                                        mapped = hf_id2label.get(idx) or hf_id2label.get(str(idx))
-                                    except Exception:
-                                        mapped = None
-                                # if not label_ style, maybe label is already textual
-                                else:
-                                    mapped = lbl
-                            # Display
-                            if score is not None:
-                                st.info(f"Label: **{lbl}**  — Score: **{score:.4f}**")
-                                if mapped:
-                                    st.success(f"Mapped label: **{mapped}**")
-                            else:
-                                st.info(f"Label: **{lbl}**")
-                                if mapped:
-                                    st.success(f"Mapped label: **{mapped}**")
-                        else:
-                            # No id2label available — just display raw result
-                            st.info("4T Model")
+
                     except Exception as e:
                         st.error(f"4T Model error")
 
