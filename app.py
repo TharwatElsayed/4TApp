@@ -499,54 +499,30 @@ elif selected == "Try The Model":
 
     st.markdown("---")
 
-elif selected == "Try BERT Model":
-    st.title("Try HuggingFace BERT Model (ctoraman/hate-speech-bert)")
-    st.write("This tab runs the HuggingFace model only (PyTorch) and shows label + score + mapped label (if available).")
-
-    example = "I really enjoy learning new things every day!"
-    text_to_analyze = st.text_area("Enter text to analyze:", value=example, height=160)
-
-    if st.button("Analyze with BERT"):
-        if not text_to_analyze.strip():
-            st.warning("Please enter text first.")
-            st.stop()
-        if hf_pipe is None:
-            st.error(f"HuggingFace pipeline failed to load: {hf_id2label}")
-        else:
-            with st.spinner("Running HuggingFace model..."):
-                try:
-                    res = hf_pipe(text_to_analyze, truncation=True)
-                    st.write(res)
-                    if isinstance(res, list) and len(res) > 0:
-                        lbl = res[0].get("label")
-                        score = res[0].get("score", None)
-                        st.info(f"Label: **{lbl}**")
-                        if score is not None:
-                            st.write(f"Score: **{score:.4f}**")
-                        # Map label if id2label available
-                        if hf_id2label and isinstance(hf_id2label, dict):
-                            mapped = None
-                            if isinstance(lbl, str) and lbl.upper().startswith("LABEL_"):
-                                try:
-                                    idx = int(lbl.split("_")[-1])
-                                    mapped = hf_id2label.get(idx) or hf_id2label.get(str(idx))
-                                except Exception:
-                                    mapped = None
-                            else:
-                                mapped = lbl
-                            if mapped:
-                                st.success(f"Mapped label: **{mapped}**")
-                    else:
-                        st.info("No label returned. Raw output shown above.")
-                except Exception as e:
-                    st.error(f"HuggingFace inference error: {e}")
-    st.markdown("---")
-
 elif selected == "About":
     st.title("About This App")
     st.write("""
-    This application is designed to analyze hate speech and offensive language in tweets.
-    It supports your local BiLSTM and classical ML models plus an integrated HuggingFace transformer model.
+    This application is designed for the analysis of hate speech and offensive language in tweets. 
+    It provides several functionalities, including:
+    
+    - Loading and exploring the dataset
+    - Understanding class distribution of hate speech, offensive language, and neutral content
+    - Preprocessing tweets (removing URLs, mentions, emojis, and special characters)
+    - Tokenizing and padding tweet sequences for machine learning models
+    - Model selection and classification of tweets using traditional machine learning classifiers
+    - Testing a trained model for real-time predictions of tweet sentiment or class
+    
+    **Key Features:**
+    
+    - Utilizes a crowdsourced dataset from Davidson et al. (2017)
+    - Supports preprocessing steps like stemming and tokenization
+    - Provides an interactive interface for exploring dataset attributes, class distributions, and preprocessing steps
+    - Enables users to test machine learning models on custom tweets
+    
+    **References:**
+    
+    - Dataset Source: Davidson, T., Warmsley, D., Macy, M., & Weber, I. (2017). Automated hate speech detection and the problem of offensive language.
+    - Available on Kaggle: https://www.kaggle.com/datasets/mrmorj/hate-speech-and-offensive-language-dataset
     """)
     st.markdown("---")
 
