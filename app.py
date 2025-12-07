@@ -401,7 +401,7 @@ elif selected == "Try The Model":
                         hf_result = hf_pipe(user_input, truncation=True)
                         st.subheader("4T Model Output")
                         #st.write(hf_result)
-                        st.write(f"Prediction: {label_map_4T.get(int(hf_result[0]["label"]), str(hf_result[0]["label"]))}")
+                        st.write(f"Prediction: {label_map_4T.get(int(hf_result[0]["label"]))}")
 
                     except Exception as e:
                         st.error(f"4T Model error")
