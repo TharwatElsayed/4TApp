@@ -207,7 +207,7 @@ with st.sidebar:
     selected = option_menu(
         menu_title="Tweet Tone Triage Technique (4T): A Secured Federated Deep Learning Approach",
         options=["Data Acquisition", "Data Exploration", "Data Classes Balancing", "Data Preparation",
-                 "ML Model Selection", "Try The Model", "Try BERT Model", "About", "Contact"],
+                 "ML Model Selection", "Try The Model", "About", "Contact"],
         icons=["house","cloud", "list", "gear", "graph-up", "briefcase", "bxs-robot", "info","envelope"],
         menu_icon="cast",
         default_index=5,
