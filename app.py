@@ -357,8 +357,7 @@ elif selected == "Try The Model":
         "SVM - SVC",
     ))
 
-    user_input = st.text_area("Enter the tweet:", value="Life often surprises us with unexpected moments that turn ordinary days into hilarious, unforgettable memories.
-", height=150)
+    user_input = st.text_area("Enter the tweet:", value="Life often surprises us with unexpected moments that turn ordinary days into hilarious, unforgettable memories", height=150)
 
     if st.button("Predict"):
         if not user_input.strip():
