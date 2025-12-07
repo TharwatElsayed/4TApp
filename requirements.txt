@@ -1,6 +1,12 @@
 streamlit
 streamlit-option-menu==0.3.6
 
+streamlit==1.40.0
+transformers==4.45.2
+torch
+tokenizers
+sentencepiece
+protobuf
 
 pandas==2.2.3
 numpy>=2.0.0
