@@ -400,8 +400,8 @@ elif selected == "Try The Model":
                         # hf_pipe returns list of dicts, e.g. [{"label": "LABEL_1", "score": 0.987}]
                         hf_result = hf_pipe(user_input, truncation=True)
                         st.subheader("4T Model Output")
-                        #st.write(hf_result)
-                        st.write(f"Prediction: {label_map_4T.get(int(hf_result[0]["label"]))}")
+                        st.write(hf_result[0]["label"])
+                        #st.write(f"Prediction: {label_map_4T.get(int(hf_result[0]["label"]))}")
 
                     except Exception as e:
                         st.error(f"4T Model error")
