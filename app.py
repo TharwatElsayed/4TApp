@@ -379,8 +379,7 @@ elif selected == "Try The Model":
         padded_docs = pad_sequences([encoded_docs], maxlen=max_length, padding='post')
 
         label_map = {0: 'Hate Speech', 1: 'Offensive Language', 2: 'Neither'}
-        label_map_4T = {0: 'Neither', 1: 'Offensive Language', 2: 'Hate Speech'}
-
+        label_map_4T = {"LABEL_0": "Neutral", "LABEL_1": "Offensive", "LABEL_2": "Hate"}
         # Show preprocessing
         st.markdown("#### Preprocessing")
         st.write("Preprocessed:", preprocessed_tweet)
@@ -400,8 +399,10 @@ elif selected == "Try The Model":
                         # hf_pipe returns list of dicts, e.g. [{"label": "LABEL_1", "score": 0.987}]
                         hf_result = hf_pipe(user_input, truncation=True)
                         st.subheader("4T Model Output")
-                        st.write(hf_result[0]["label"])
-                        #st.write(f"Prediction: {label_map_4T.get(int(hf_result[0]["label"]))}")
+                        #st.write(hf_result[0]["label"])
+                        raw_label = hf_result[0]["label"]
+                        readable_label = label_map.get(raw_label, raw_label)
+                        st.write(f"**Class:** {readable_label}")
 
                     except Exception as e:
                         st.error(f"4T Model error")
