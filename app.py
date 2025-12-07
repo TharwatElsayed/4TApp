@@ -401,7 +401,7 @@ elif selected == "Try The Model":
                         st.subheader("4T Model Output")
                         #st.write(hf_result[0]["label"])
                         raw_label = hf_result[0]["label"]
-                        readable_label = label_map.get(raw_label, raw_label)
+                        readable_label = label_map_4T.get(raw_label, raw_label)
                         st.write(f"**Class:** {readable_label}")
 
                     except Exception as e:
