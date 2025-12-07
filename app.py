@@ -23,15 +23,7 @@ import streamlit as st
 from transformers import pipeline
 
 
-# -------------------------------
-# Load model
-# -------------------------------
-@st.cache_resource
-def load_pipeline():
-    pipe = pipeline("text-classification", model="ctoraman/hate-speech-bert")
-    return pipe
 
-pipe = load_pipeline()
 
 # Define the custom attention layer
 class attention(Layer):
