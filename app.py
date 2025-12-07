@@ -19,6 +19,8 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 
+import streamlit as st
+from transformers import pipeline
 
 # Define the custom attention layer
 class attention(Layer):
